@@ -1,11 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Buffon Test</title>
+    <title>Buffon Test - Updated</title>
+    <style>
+        body { font-family: Arial; margin: 40px; background: #667eea; color: white; }
+        h1 { font-size: 2rem; }
+        a { color: #FFD700; }
+    </style>
 </head>
 <body>
-    <h1>GitHub Pages Test</h1>
-    <p>If you see this, GitHub Pages is working!</p>
-    <p><a href="index.html">Go to Buffon App</a></p>
+    <h1>✅ GitHub Pages is Working!</h1>
+    <p>Deployment successful at: <span id="time"></span></p>
+    <p><a href="index.html">→ Go to Buffon's Needle App</a></p>
+    
+    <script>
+        document.getElementById('time').textContent = new Date().toLocaleString();
+    </script>
 </body>
 </html>
