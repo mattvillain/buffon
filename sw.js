@@ -1,28 +1,16 @@
+// Simple service worker for GitHub Pages compatibility
 const CACHE_NAME = 'buffon-needle-v1';
-const urlsToCache = [
-  './',
-  './index.html',
-  './styles.css',
-  './script.js',
-  './manifest.json',
-  './icon-192.svg',
-  './icon-512.svg'
-];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
+  console.log('Service worker installing...');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  console.log('Service worker activating...');
 });
 
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
-      }
-    )
-  );
+  // Simple pass-through for GitHub Pages
+  event.respondWith(fetch(event.request));
 });
