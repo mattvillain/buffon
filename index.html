@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buffon's Needle Approximation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Buffon's Needle Approximation</h1>
+            <p>Estimating π using geometric probability</p>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <button id="startBtn" class="btn primary">Start</button>
+                <button id="pauseBtn" class="btn secondary" disabled>Pause</button>
+                <button id="resetBtn" class="btn tertiary">Reset</button>
+                <button id="betModeBtn" class="btn special">Bet Mode</button>
+            </div>
+            
+            <div class="control-group">
+                <label for="speedSlider">Animation Speed:</label>
+                <input type="range" id="speedSlider" min="1" max="10" value="5">
+                <span id="speedValue">5</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="needleLength">Needle Length:</label>
+                <input type="range" id="needleLength" min="0.5" max="2" step="0.1" value="1">
+                <span id="lengthValue">1.0</span>
+            </div>
+        </div>
+
+        <div id="betPanel" class="bet-panel hidden">
+            <h3>🎲 Betting Mode</h3>
+            <div class="bet-controls">
+                <div class="bet-input-group">
+                    <label for="betAmount">Bet Amount ($):</label>
+                    <input type="number" id="betAmount" min="1" max="1000" value="10">
+                </div>
+                <div class="bet-input-group">
+                    <label for="targetThrows">Target Throws:</label>
+                    <input type="number" id="targetThrows" min="100" max="10000" step="100" value="1000">
+                </div>
+                <div class="bet-info">
+                    <div class="odds-display">
+                        <span>Current Odds:</span>
+                        <span id="currentOdds">1:1</span>
+                    </div>
+                    <div class="potential-payout">
+                        <span>Potential Payout:</span>
+                        <span id="potentialPayout">$20</span>
+                    </div>
+                </div>
+                <div class="bet-buttons">
+                    <button id="betYesBtn" class="btn bet-yes">Bet YES (Will Converge)</button>
+                    <button id="betNoBtn" class="btn bet-no">Bet NO (Won't Converge)</button>
+                </div>
+            </div>
+            <div id="activeBet" class="active-bet hidden">
+                <div class="bet-status">
+                    <h4>🎯 Active Bet</h4>
+                    <p>Bet: <span id="betDirection"></span></p>
+                    <p>Amount: $<span id="activeBetAmount"></span></p>
+                    <p>Target: <span id="activeBetTarget"></span> throws</p>
+                    <p>Odds: <span id="activeBetOdds"></span></p>
+                </div>
+                <div class="convergence-tracker">
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+                    <div class="convergence-status">
+                        <span>Throws: <span id="throwCount">0</span>/<span id="targetCount">0</span></span>
+                        <span id="convergenceStatus">Waiting...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="simulation-area">
+            <canvas id="simulationCanvas" width="800" height="600"></canvas>
+        </div>
+
+        <div id="betResults" class="bet-results hidden">
+            <div class="result-display">
+                <h3 id="betResultTitle"></h3>
+                <p id="betResultMessage"></p>
+                <div class="final-stats">
+                    <span>Final π estimate: <span id="finalPi"></span></span>
+                    <span>Accuracy achieved: <span id="finalAccuracy"></span> digits</span>
+                    <span>Total throws: <span id="finalThrows"></span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <label>Total Needles:</label>
+                <span id="totalNeedles">0</span>
+            </div>
+            <div class="stat-item">
+                <label>Crossing Lines:</label>
+                <span id="crossingNeedles">0</span>
+            </div>
+            <div class="stat-item">
+                <label>Estimated π:</label>
+                <span id="piEstimate">0</span>
+            </div>
+            <div class="stat-item">
+                <label>Error:</label>
+                <span id="error">0%</span>
+            </div>
+            <div class="stat-item betting-stats">
+                <label>Betting Balance:</label>
+                <span id="bettingBalance">$100</span>
+            </div>
+            <div class="stat-item betting-stats">
+                <label>Games Won:</label>
+                <span id="gamesWon">0</span>
+            </div>
+        </div>
+
+        <div class="explanation">
+            <h2>How it works</h2>
+            <p>
+                Buffon's needle problem is a classic problem in geometric probability. 
+                When a needle of length L is dropped onto a floor with parallel lines 
+                separated by distance D, the probability of the needle crossing a line is:
+            </p>
+            <p class="formula">P = 2L / (πD)</p>
+            <p>
+                By rearranging this formula, we can estimate π as:
+            </p>
+            <p class="formula">π ≈ 2L × (total drops) / (D × crossings)</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
