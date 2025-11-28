@@ -21,7 +21,7 @@ class BuffonNeedleSimulation {
         this.activeBet = null;
         this.bettingBalance = 100;
         this.gamesWon = 0;
-        this.convergenceTarget = 5; // 5 decimal places
+        this.convergenceTarget = 2; // 2 decimal places (more achievable)
         
         // Canvas setup
         this.setupCanvas();
@@ -252,11 +252,6 @@ class BuffonNeedleSimulation {
             
             document.getElementById('piEstimate').textContent = piEstimate.toFixed(6);
             document.getElementById('error').textContent = error.toFixed(2) + '%';
-            
-            // Debug info (remove in production)
-            if (this.totalDrops % 1000 === 0) {
-                console.log(`Drops: ${N}, Crossings: ${C}, Ratio: ${(C/N).toFixed(4)}, Theoretical: ${(2*L/(Math.PI*D)).toFixed(4)}, π estimate: ${piEstimate.toFixed(6)}`);
-            }
         } else {
             document.getElementById('piEstimate').textContent = '0';
             document.getElementById('error').textContent = '0%';
@@ -320,14 +315,23 @@ class BuffonNeedleSimulation {
     }
     
     calculateOdds(targetThrows) {
-        // Dynamic odds calculation based on target throws and historical convergence data
-        // Lower target throws = harder to achieve = better odds
-        const baseOdds = 0.5; // Starting odds
-        const difficultyFactor = Math.max(0.1, 1000 / targetThrows); // Harder with fewer throws
-        const convergenceBonus = Math.random() * 0.3; // Some randomness for excitement
+        // Calculate odds based on mathematical probability of convergence
+        // Based on Central Limit Theorem - standard error decreases as 1/sqrt(n)
         
-        const odds = baseOdds + difficultyFactor + convergenceBonus;
-        return Math.max(1.1, Math.min(5.0, odds)); // Cap between 1.1 and 5.0
+        // Estimate probability of achieving 5 decimal places within targetThrows
+        // This is a simplified model - in reality it depends on many factors
+        const standardError = 1 / Math.sqrt(targetThrows);
+        
+        // Probability decreases exponentially with required accuracy and inversely with sample size
+        const convergenceProbability = Math.exp(-5 * standardError * 10);
+        
+        // Convert probability to odds (fair odds would be 1/probability)
+        // Add house edge of ~10% to make it slightly unfavorable to bettor
+        const fairOdds = 1 / Math.max(0.01, convergenceProbability);
+        const houseEdgeOdds = fairOdds * 0.9; // 10% house edge
+        
+        // Cap odds to reasonable range
+        return Math.max(1.1, Math.min(10.0, houseEdgeOdds));
     }
     
     updateOdds() {
@@ -424,25 +428,18 @@ class BuffonNeedleSimulation {
     
     calculateAccuracy(piEstimate) {
         const actualPi = Math.PI;
+        
+        // Calculate accuracy based on decimal places that match
+        // More robust method: check error magnitude
         const error = Math.abs(piEstimate - actualPi);
         
-        // Count matching decimal places
-        let accuracy = 0;
-        let factor = 1;
+        if (error < 0.000005) return 5; // 5 decimal places (error < 5e-6)
+        if (error < 0.00005) return 4;  // 4 decimal places (error < 5e-5) 
+        if (error < 0.0005) return 3;   // 3 decimal places (error < 5e-4)
+        if (error < 0.005) return 2;    // 2 decimal places (error < 5e-3)
+        if (error < 0.05) return 1;     // 1 decimal place (error < 5e-2)
         
-        for (let i = 0; i < 10; i++) {
-            factor *= 10;
-            const estimateDigit = Math.floor((piEstimate * factor) % 10);
-            const actualDigit = Math.floor((actualPi * factor) % 10);
-            
-            if (estimateDigit === actualDigit) {
-                accuracy++;
-            } else {
-                break;
-            }
-        }
-        
-        return accuracy;
+        return 0; // No significant accuracy
     }
     
     finalizeBet() {

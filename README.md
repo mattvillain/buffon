@@ -48,7 +48,7 @@ This app is designed to work seamlessly on mobile devices:
    - Set target number of throws (100-10,000)
    - View dynamic odds and potential payout
 3. **Place Your Bet**: 
-   - **Bet YES**: You believe π will converge to 5 decimal places within the target throws
+   - **Bet YES**: You believe π will converge to 2 decimal places within the target throws
    - **Bet NO**: You believe it won't converge in time
 4. **Watch & Win**: Monitor the progress bar and convergence status
 5. **Collect Winnings**: Successful bets pay out based on the odds when you placed the bet
