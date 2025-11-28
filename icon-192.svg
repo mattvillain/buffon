@@ -1,9 +1,0 @@
-<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
-  <rect width="192" height="192" rx="24" fill="#667eea"/>
-  <circle cx="96" cy="70" r="25" fill="none" stroke="white" stroke-width="4"/>
-  <text x="96" y="82" text-anchor="middle" fill="white" font-family="Arial" font-size="20" font-weight="bold">π</text>
-  <rect x="70" y="110" width="52" height="8" rx="4" fill="white"/>
-  <rect x="70" y="125" width="52" height="8" rx="4" fill="white"/>
-  <rect x="70" y="140" width="52" height="8" rx="4" fill="white"/>
-  <text x="96" y="170" text-anchor="middle" fill="white" font-family="Arial" font-size="14">🎲</text>
-</svg>
