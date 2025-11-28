@@ -103,31 +103,34 @@ class BuffonNeedleSimulation {
     }
     
     dropNeedle() {
-        // Random position and angle
-        const x = Math.random() * this.canvas.width;
-        const y = Math.random() * this.canvas.height;
+        // Random position and angle, ensuring needle stays within bounds
+        const halfLength = this.needleLength / 2;
+        const margin = halfLength + 10; // Small margin to ensure needles fit
+        
+        const x = margin + Math.random() * (this.canvas.width - 2 * margin);
+        const y = margin + Math.random() * (this.canvas.height - 2 * margin);
         const angle = Math.random() * Math.PI; // 0 to π radians
         
         // Calculate needle endpoints
-        const halfLength = this.needleLength / 2;
         const x1 = x - halfLength * Math.cos(angle);
         const y1 = y - halfLength * Math.sin(angle);
         const x2 = x + halfLength * Math.cos(angle);
         const y2 = y + halfLength * Math.sin(angle);
         
-        // Check if needle crosses any vertical line using simpler method
+        // Check if needle crosses any vertical line
         let crosses = false;
         
         // Get the leftmost and rightmost x-coordinates of the needle
         const minX = Math.min(x1, x2);
         const maxX = Math.max(x1, x2);
         
-        // Find the leftmost and rightmost line indices that the needle could cross
-        const leftLineIndex = Math.floor(minX / this.lineSpacing);
-        const rightLineIndex = Math.floor(maxX / this.lineSpacing);
-        
-        // If the needle spans different line segments, it crosses a line
-        crosses = leftLineIndex !== rightLineIndex;
+        // Check each vertical line within the needle's span
+        for (let lineX = this.lineSpacing; lineX < this.canvas.width; lineX += this.lineSpacing) {
+            if (minX <= lineX && lineX <= maxX) {
+                crosses = true;
+                break;
+            }
+        }
         
         // Store needle data
         const needle = {
@@ -150,14 +153,15 @@ class BuffonNeedleSimulation {
     }
     
     fadeOldNeedles() {
-        // Keep only recent needles visible and fade them
+        // Keep only recent needles visible for performance, but don't affect the mathematical counters
         const maxVisibleNeedles = 100;
         
         if (this.needles.length > maxVisibleNeedles) {
+            // Only remove from visual array, counters (totalDrops, crossings) remain accurate
             this.needles = this.needles.slice(-maxVisibleNeedles);
         }
         
-        // Apply fade effect
+        // Apply fade effect to visible needles
         this.needles.forEach((needle, index) => {
             const age = this.needles.length - index;
             needle.opacity = Math.max(0.1, 1 - (age / maxVisibleNeedles));
@@ -234,7 +238,7 @@ class BuffonNeedleSimulation {
         document.getElementById('totalNeedles').textContent = this.totalDrops;
         document.getElementById('crossingNeedles').textContent = this.crossings;
         
-        if (this.crossings > 0) {
+        if (this.crossings > 0 && this.totalDrops > 0) {
             // Calculate π estimate using Buffon's formula
             // π ≈ (2 * L * N) / (D * C)
             // where L = needle length, N = total drops, D = line spacing, C = crossings
@@ -248,6 +252,11 @@ class BuffonNeedleSimulation {
             
             document.getElementById('piEstimate').textContent = piEstimate.toFixed(6);
             document.getElementById('error').textContent = error.toFixed(2) + '%';
+            
+            // Debug info (remove in production)
+            if (this.totalDrops % 1000 === 0) {
+                console.log(`Drops: ${N}, Crossings: ${C}, Ratio: ${(C/N).toFixed(4)}, Theoretical: ${(2*L/(Math.PI*D)).toFixed(4)}, π estimate: ${piEstimate.toFixed(6)}`);
+            }
         } else {
             document.getElementById('piEstimate').textContent = '0';
             document.getElementById('error').textContent = '0%';
