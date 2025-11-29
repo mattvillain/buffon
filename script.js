@@ -103,34 +103,25 @@ class BuffonNeedleSimulation {
     }
     
     dropNeedle() {
-        // Random position and angle, ensuring needle stays within bounds
+        // Random position of the needle's center and orientation
         const halfLength = this.needleLength / 2;
-        const margin = halfLength + 10; // Small margin to ensure needles fit
-        
-        const x = margin + Math.random() * (this.canvas.width - 2 * margin);
-        const y = margin + Math.random() * (this.canvas.height - 2 * margin);
+        const x = Math.random() * this.canvas.width;
+        const y = Math.random() * this.canvas.height;
         const angle = Math.random() * Math.PI; // 0 to π radians
         
-        // Calculate needle endpoints
+        // Calculate needle endpoints for rendering
         const x1 = x - halfLength * Math.cos(angle);
         const y1 = y - halfLength * Math.sin(angle);
         const x2 = x + halfLength * Math.cos(angle);
         const y2 = y + halfLength * Math.sin(angle);
         
-        // Check if needle crosses any vertical line
-        let crosses = false;
+        // Determine distance from the needle's center to the nearest vertical line
+        const mod = x % this.lineSpacing;
+        const distanceToNearestLine = Math.min(mod, this.lineSpacing - mod);
         
-        // Get the leftmost and rightmost x-coordinates of the needle
-        const minX = Math.min(x1, x2);
-        const maxX = Math.max(x1, x2);
-        
-        // Check each vertical line within the needle's span
-        for (let lineX = this.lineSpacing; lineX < this.canvas.width; lineX += this.lineSpacing) {
-            if (minX <= lineX && lineX <= maxX) {
-                crosses = true;
-                break;
-            }
-        }
+        // A crossing occurs if the projected half-length perpendicular to the lines exceeds the distance
+        const perpendicularProjection = halfLength * Math.abs(Math.sin(angle));
+        const crosses = perpendicularProjection >= distanceToNearestLine;
         
         // Store needle data
         const needle = {
