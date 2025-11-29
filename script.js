@@ -9,6 +9,7 @@ class BuffonNeedleSimulation {
         this.needles = [];
         this.totalDrops = 0;
         this.crossings = 0;
+        this.maxVisibleNeedles = 400;
         
         // Animation parameters
         this.isRunning = false;
@@ -21,7 +22,10 @@ class BuffonNeedleSimulation {
         this.activeBet = null;
         this.bettingBalance = 100;
         this.gamesWon = 0;
-        this.convergenceTarget = 2; // 2 decimal places (more achievable)
+        this.convergenceTarget = 5; // target decimal places for convergence bets
+        this.houseEdge = 0.1; // 10% house advantage baked into odds
+        this.currentOdds = { yes: 1.0, no: 1.0 };
+        this.currentProbabilities = { yes: 0.5, no: 0.5 };
         
         // Canvas setup
         this.setupCanvas();
@@ -137,36 +141,17 @@ class BuffonNeedleSimulation {
             this.crossings++;
         }
         
-        // Fade older needles
-        this.fadeOldNeedles();
-        
         return needle;
     }
     
-    fadeOldNeedles() {
-        // Keep only recent needles visible for performance, but don't affect the mathematical counters
-        const maxVisibleNeedles = 100;
-        
-        if (this.needles.length > maxVisibleNeedles) {
-            // Only remove from visual array, counters (totalDrops, crossings) remain accurate
-            this.needles = this.needles.slice(-maxVisibleNeedles);
-        }
-        
-        // Apply fade effect to visible needles
-        this.needles.forEach((needle, index) => {
-            const age = this.needles.length - index;
-            needle.opacity = Math.max(0.1, 1 - (age / maxVisibleNeedles));
-        });
-    }
-    
-    drawNeedle(needle) {
+    drawNeedle(needle, opacity) {
         this.ctx.save();
         
         // Set color based on crossing status
         if (needle.crosses) {
-            this.ctx.strokeStyle = `rgba(244, 67, 54, ${needle.opacity})`; // Red for crossing
+            this.ctx.strokeStyle = `rgba(244, 67, 54, ${opacity})`; // Red for crossing
         } else {
-            this.ctx.strokeStyle = `rgba(76, 175, 80, ${needle.opacity})`; // Green for non-crossing
+            this.ctx.strokeStyle = `rgba(76, 175, 80, ${opacity})`; // Green for non-crossing
         }
         
         this.ctx.lineWidth = 2;
@@ -198,8 +183,16 @@ class BuffonNeedleSimulation {
         // Redraw lines
         this.drawLines();
         
-        // Redraw all needles
-        this.needles.forEach(needle => this.drawNeedle(needle));
+        // Draw only recent needles for performance while maintaining full history
+        const startIndex = Math.max(0, this.needles.length - this.maxVisibleNeedles);
+        const totalNeedles = this.needles.length;
+        
+        for (let i = startIndex; i < totalNeedles; i++) {
+            const needle = this.needles[i];
+            const age = totalNeedles - i;
+            const opacity = Math.max(0.15, 1 - age / this.maxVisibleNeedles);
+            this.drawNeedle(needle, opacity);
+        }
     }
     
     animate() {
@@ -246,6 +239,10 @@ class BuffonNeedleSimulation {
         } else {
             document.getElementById('piEstimate').textContent = '0';
             document.getElementById('error').textContent = '0%';
+        }
+
+        if (this.bettingMode) {
+            this.updateOdds();
         }
     }
     
@@ -295,6 +292,10 @@ class BuffonNeedleSimulation {
             bettingStats.forEach(stat => stat.style.display = 'flex');
             document.getElementById('betModeBtn').textContent = 'Exit Bet Mode';
             document.getElementById('betModeBtn').classList.add('active');
+            const digitsLabel = this.convergenceTarget === 1 ? 'digit' : 'digits';
+            document.getElementById('betYesBtn').textContent = `Bet YES (Reach ${this.convergenceTarget} ${digitsLabel})`;
+            document.getElementById('betNoBtn').textContent = `Bet NO (Miss ${this.convergenceTarget} ${digitsLabel})`;
+            document.getElementById('betTargetDigits').textContent = this.convergenceTarget;
             this.updateOdds();
         } else {
             panel.classList.add('hidden');
@@ -305,41 +306,76 @@ class BuffonNeedleSimulation {
         }
     }
     
-    calculateOdds(targetThrows) {
-        // Calculate odds based on mathematical probability of convergence
-        // Based on Central Limit Theorem - standard error decreases as 1/sqrt(n)
-        
-        // Estimate probability of achieving 5 decimal places within targetThrows
-        // This is a simplified model - in reality it depends on many factors
-        const standardError = 1 / Math.sqrt(targetThrows);
-        
-        // Probability decreases exponentially with required accuracy and inversely with sample size
-        const convergenceProbability = Math.exp(-5 * standardError * 10);
-        
-        // Convert probability to odds (fair odds would be 1/probability)
-        // Add house edge of ~10% to make it slightly unfavorable to bettor
-        const fairOdds = 1 / Math.max(0.01, convergenceProbability);
-        const houseEdgeOdds = fairOdds * 0.9; // 10% house edge
-        
-        // Cap odds to reasonable range
-        return Math.max(1.1, Math.min(10.0, houseEdgeOdds));
-    }
-    
     updateOdds() {
-        const targetThrows = parseInt(document.getElementById('targetThrows').value);
-        const betAmount = parseFloat(document.getElementById('betAmount').value);
-        
-        const odds = this.calculateOdds(targetThrows);
-        const payout = betAmount * odds;
-        
-        document.getElementById('currentOdds').textContent = `1:${odds.toFixed(2)}`;
-        document.getElementById('potentialPayout').textContent = `$${payout.toFixed(2)}`;
+        const targetThrowsInput = document.getElementById('targetThrows');
+        const betAmountInput = document.getElementById('betAmount');
+
+        if (!targetThrowsInput || !betAmountInput) {
+            return;
+        }
+
+        const targetThrows = Math.max(1, parseInt(targetThrowsInput.value, 10) || 0);
+        const betAmount = Math.max(0, parseFloat(betAmountInput.value) || 0);
+        const metrics = this.calculateConvergenceProbability(targetThrows);
+
+        this.currentProbabilities = {
+            yes: metrics.yesProbability,
+            no: metrics.noProbability
+        };
+
+        this.currentOdds = {
+            yes: metrics.yesOdds,
+            no: metrics.noOdds
+        };
+
+        const yesProbabilityText = Number.isFinite(metrics.yesProbability)
+            ? `${(metrics.yesProbability * 100).toFixed(1)}%`
+            : '--';
+        const noProbabilityText = Number.isFinite(metrics.noProbability)
+            ? `${(metrics.noProbability * 100).toFixed(1)}%`
+            : '--';
+
+        const yesOddsText = Number.isFinite(metrics.yesOdds) ? `1:${metrics.yesOdds.toFixed(2)}` : '1:--';
+        const noOddsText = Number.isFinite(metrics.noOdds) ? `1:${metrics.noOdds.toFixed(2)}` : '1:--';
+
+        const yesPayoutValue = betAmount * (Number.isFinite(metrics.yesOdds) ? metrics.yesOdds : 0);
+        const noPayoutValue = betAmount * (Number.isFinite(metrics.noOdds) ? metrics.noOdds : 0);
+
+        const yesPayoutText = Number.isFinite(yesPayoutValue) ? `$${yesPayoutValue.toFixed(2)}` : '$0.00';
+        const noPayoutText = Number.isFinite(noPayoutValue) ? `$${noPayoutValue.toFixed(2)}` : '$0.00';
+
+        const yesProbabilityEl = document.getElementById('probabilityYes');
+        const noProbabilityEl = document.getElementById('probabilityNo');
+        const yesOddsEl = document.getElementById('yesOdds');
+        const noOddsEl = document.getElementById('noOdds');
+        const yesPayoutEl = document.getElementById('yesPayout');
+        const noPayoutEl = document.getElementById('noPayout');
+
+        if (yesProbabilityEl) yesProbabilityEl.textContent = yesProbabilityText;
+        if (noProbabilityEl) noProbabilityEl.textContent = noProbabilityText;
+        if (yesOddsEl) yesOddsEl.textContent = yesOddsText;
+        if (noOddsEl) noOddsEl.textContent = noOddsText;
+        if (yesPayoutEl) yesPayoutEl.textContent = yesPayoutText;
+        if (noPayoutEl) noPayoutEl.textContent = noPayoutText;
     }
     
     placeBet(bettingYes) {
+        this.updateOdds();
+
         const betAmount = parseFloat(document.getElementById('betAmount').value);
-        const targetThrows = parseInt(document.getElementById('targetThrows').value);
+            const targetThrowsInput = parseInt(document.getElementById('targetThrows').value, 10);
+            const targetThrows = Math.max(1, Number.isFinite(targetThrowsInput) ? targetThrowsInput : 0);
         
+        if (!Number.isFinite(betAmount) || betAmount <= 0) {
+            alert('Enter a valid bet amount greater than zero.');
+            return;
+        }
+
+            if (!Number.isFinite(targetThrowsInput) || targetThrowsInput <= 0) {
+            alert('Enter a valid target throw count.');
+            return;
+        }
+
         if (betAmount > this.bettingBalance) {
             alert('Insufficient balance!');
             return;
@@ -350,13 +386,22 @@ class BuffonNeedleSimulation {
             return;
         }
         
-        const odds = this.calculateOdds(targetThrows);
+        const odds = bettingYes ? this.currentOdds.yes : this.currentOdds.no;
+        const probability = bettingYes ? this.currentProbabilities.yes : this.currentProbabilities.no;
+        const payout = betAmount * odds;
+
+        if (!Number.isFinite(odds) || odds < 1) {
+            alert('Odds are not available right now. Please wait a moment and try again.');
+            return;
+        }
         
         this.activeBet = {
             amount: betAmount,
             targetThrows: targetThrows,
             bettingYes: bettingYes,
             odds: odds,
+            probability: probability,
+            potentialPayout: payout,
             startingThrows: this.totalDrops,
             converged: false,
             finished: false
@@ -368,10 +413,13 @@ class BuffonNeedleSimulation {
         
         // Show active bet panel
         document.getElementById('activeBet').classList.remove('hidden');
-        document.getElementById('betDirection').textContent = bettingYes ? 'YES (Will Converge)' : 'NO (Won\'t Converge)';
+        const digitsLabel = this.convergenceTarget === 1 ? 'digit' : 'digits';
+        document.getElementById('betDirection').textContent = bettingYes ? `YES (Will converge to ${this.convergenceTarget} ${digitsLabel})` : `NO (Won't converge to ${this.convergenceTarget} ${digitsLabel})`;
         document.getElementById('activeBetAmount').textContent = betAmount.toFixed(2);
         document.getElementById('activeBetTarget').textContent = targetThrows;
         document.getElementById('activeBetOdds').textContent = `1:${odds.toFixed(2)}`;
+        document.getElementById('activeBetProbability').textContent = `${(probability * 100).toFixed(1)}%`;
+        document.getElementById('activeBetPayout').textContent = payout.toFixed(2);
         document.getElementById('targetCount').textContent = targetThrows;
         
         // Disable betting buttons
@@ -432,6 +480,97 @@ class BuffonNeedleSimulation {
         
         return 0; // No significant accuracy
     }
+
+    getErrorThreshold(digits) {
+        if (digits <= 0) return 1;
+        return 5 * Math.pow(10, -(digits + 1));
+    }
+
+    calculateConvergenceProbability(targetThrows) {
+        if (!Number.isFinite(targetThrows) || targetThrows <= 0) {
+            return {
+                yesProbability: 0,
+                noProbability: 1,
+                yesOdds: this.probabilityToOdds(0),
+                noOdds: this.probabilityToOdds(1)
+            };
+        }
+
+        const digits = this.convergenceTarget;
+        const tolerance = this.getErrorThreshold(digits);
+        const L = this.needleLength;
+        const D = this.lineSpacing;
+        const currentThrows = this.totalDrops;
+        const currentCrossings = this.crossings;
+        const futureThrows = targetThrows;
+        const finalThrows = currentThrows + futureThrows;
+
+        const minimumCrossings = 1e-6;
+
+        const rawCrossProbability = (2 * L) / (Math.PI * D);
+        const crossingProbability = Math.min(0.999999, Math.max(1e-6, rawCrossProbability));
+        const expectedAdditionalCrossings = futureThrows * crossingProbability;
+        const varianceAdditionalCrossings = futureThrows * crossingProbability * (1 - crossingProbability);
+
+        const meanCrossings = currentCrossings + expectedAdditionalCrossings;
+        const sigmaCrossings = Math.sqrt(Math.max(varianceAdditionalCrossings, minimumCrossings));
+        const effectiveMeanCrossings = Math.max(meanCrossings, minimumCrossings);
+
+        const meanPi = (2 * L * finalThrows) / (D * effectiveMeanCrossings);
+        const derivative = -(2 * L * finalThrows) / (D * Math.pow(effectiveMeanCrossings, 2));
+        const sigmaPi = Math.max(Math.abs(derivative) * sigmaCrossings, 1e-6);
+
+        const piTarget = Math.PI;
+        const lowerZ = (piTarget - tolerance - meanPi) / sigmaPi;
+        const upperZ = (piTarget + tolerance - meanPi) / sigmaPi;
+
+        const yesProbability = Math.max(0, Math.min(1, this.normalCDF(upperZ) - this.normalCDF(lowerZ)));
+        const noProbability = Math.max(0, Math.min(1, 1 - yesProbability));
+
+        return {
+            yesProbability,
+            noProbability,
+            yesOdds: this.probabilityToOdds(yesProbability),
+            noOdds: this.probabilityToOdds(noProbability)
+        };
+    }
+
+    probabilityToOdds(probability) {
+        if (!Number.isFinite(probability)) {
+            return 1.01;
+        }
+
+        const minProbability = 0.001;
+        const maxProbability = 0.999;
+        const bounded = Math.min(maxProbability, Math.max(minProbability, probability));
+        const inverseMinusOne = (1 / bounded) - 1;
+        const adjustedOdds = 1 + (1 - this.houseEdge) * inverseMinusOne;
+        return Math.min(50, Math.max(1, adjustedOdds));
+    }
+
+    normalCDF(x) {
+        return 0.5 * (1 + this.erf(x / Math.sqrt(2)));
+    }
+
+    erf(x) {
+        if (x === 0) {
+            return 0;
+        }
+
+        const sign = x < 0 ? -1 : 1;
+        const absX = Math.abs(x);
+        const a1 = 0.254829592;
+        const a2 = -0.284496736;
+        const a3 = 1.421413741;
+        const a4 = -1.453152027;
+        const a5 = 1.061405429;
+        const p = 0.3275911;
+
+        const t = 1 / (1 + p * absX);
+        const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-absX * absX);
+
+        return sign * y;
+    }
     
     finalizeBet() {
         if (!this.activeBet || this.activeBet.finished) return;
@@ -461,16 +600,21 @@ class BuffonNeedleSimulation {
         const resultsDiv = document.getElementById('betResults');
         const titleElement = document.getElementById('betResultTitle');
         const messageElement = document.getElementById('betResultMessage');
+        const probabilityText = this.activeBet && Number.isFinite(this.activeBet.probability)
+            ? `${(this.activeBet.probability * 100).toFixed(1)}%`
+            : null;
         
         resultsDiv.classList.remove('hidden', 'win', 'loss');
         resultsDiv.classList.add(won ? 'win' : 'loss');
         
         if (won) {
             titleElement.textContent = `🎉 YOU WON!`;
-            messageElement.textContent = `Congratulations! You won $${payout.toFixed(2)}`;
+            const baseMessage = `Congratulations! You won $${payout.toFixed(2)}`;
+            messageElement.textContent = probabilityText ? `${baseMessage}. Win chance was ${probabilityText}.` : baseMessage;
         } else {
             titleElement.textContent = `💸 YOU LOST!`;
-            messageElement.textContent = `Better luck next time! You lost $${this.activeBet.amount.toFixed(2)}`;
+            const baseMessage = `Better luck next time! You lost $${this.activeBet.amount.toFixed(2)}`;
+            messageElement.textContent = probabilityText ? `${baseMessage}. Win chance was ${probabilityText}.` : baseMessage;
         }
         
         // Update final stats
@@ -498,12 +642,18 @@ class BuffonNeedleSimulation {
         document.getElementById('convergenceStatus').textContent = 'Waiting...';
         document.getElementById('convergenceStatus').style.color = 'white';
         document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('activeBetProbability').textContent = '--';
+        document.getElementById('activeBetPayout').textContent = '--';
         this.updateBettingUI();
     }
     
     updateBettingUI() {
         document.getElementById('bettingBalance').textContent = `$${this.bettingBalance.toFixed(2)}`;
         document.getElementById('gamesWon').textContent = this.gamesWon;
+
+        if (this.bettingMode) {
+            this.updateOdds();
+        }
     }
 }
 

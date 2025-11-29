@@ -40,6 +40,7 @@
 
         <div id="betPanel" class="bet-panel hidden">
             <h3>🎲 Betting Mode</h3>
+            <p class="bet-target-note">Reach <span id="betTargetDigits">5</span> decimal places before the throw limit to win.</p>
             <div class="bet-controls">
                 <div class="bet-input-group">
                     <label for="betAmount">Bet Amount ($):</label>
@@ -50,18 +51,40 @@
                     <input type="number" id="targetThrows" min="100" max="10000" step="100" value="1000">
                 </div>
                 <div class="bet-info">
-                    <div class="odds-display">
-                        <span>Current Odds:</span>
-                        <span id="currentOdds">1:1</span>
+                    <div class="bet-option">
+                        <h4>YES · Converge</h4>
+                        <div class="bet-metric">
+                            <span>Probability</span>
+                            <span id="probabilityYes">--</span>
+                        </div>
+                        <div class="bet-metric">
+                            <span>Odds</span>
+                            <span id="yesOdds">1:--</span>
+                        </div>
+                        <div class="bet-metric">
+                            <span>Payout</span>
+                            <span id="yesPayout">$0.00</span>
+                        </div>
                     </div>
-                    <div class="potential-payout">
-                        <span>Potential Payout:</span>
-                        <span id="potentialPayout">$20</span>
+                    <div class="bet-option">
+                        <h4>NO · Miss</h4>
+                        <div class="bet-metric">
+                            <span>Probability</span>
+                            <span id="probabilityNo">--</span>
+                        </div>
+                        <div class="bet-metric">
+                            <span>Odds</span>
+                            <span id="noOdds">1:--</span>
+                        </div>
+                        <div class="bet-metric">
+                            <span>Payout</span>
+                            <span id="noPayout">$0.00</span>
+                        </div>
                     </div>
                 </div>
                 <div class="bet-buttons">
-                    <button id="betYesBtn" class="btn bet-yes">Bet YES (Will Converge to 2 digits)</button>
-                    <button id="betNoBtn" class="btn bet-no">Bet NO (Won't Converge to 2 digits)</button>
+                    <button id="betYesBtn" class="btn bet-yes">Bet YES (Reach target accuracy)</button>
+                    <button id="betNoBtn" class="btn bet-no">Bet NO (Miss target accuracy)</button>
                 </div>
             </div>
             <div id="activeBet" class="active-bet hidden">
@@ -71,6 +94,8 @@
                     <p>Amount: $<span id="activeBetAmount"></span></p>
                     <p>Target: <span id="activeBetTarget"></span> throws</p>
                     <p>Odds: <span id="activeBetOdds"></span></p>
+                    <p>Win chance: <span id="activeBetProbability">--</span></p>
+                    <p>Potential payout: $<span id="activeBetPayout">--</span></p>
                 </div>
                 <div class="convergence-tracker">
                     <div class="progress-bar">
